@@ -61,7 +61,7 @@ static uint8_t live_irq;
 #define IRQ_CTC		3	/* 3 4 5 6 */
 /* TOOD: PIO */
 
-#define IRQ_J7		(1 << 1)	/* A8_1, U6, pin 4 (D1) */
+#define VDP_J7		(1 << 1)	/* A8_1, U6, pin 4 (D1) */
 static uint8_t j7 = 1;			/* J7 default installed */
 
 static Z80Context cpu_z80;
@@ -818,7 +818,7 @@ uint8_t io_read(int unused, uint16_t addr)
 					uint8_t joy0port;
 					joy0port = joystick_read(0);
 					if (j7 && tms9918a_irq_pending(vdp)) {
-						joy0port &= ~IRQ_J7;
+						joy0port &= ~VDP_J7;
 						if (trace & TRACE_IRQ)
 							fprintf (stderr,"VDP IRQ pending via J7: %02X\n", joy0port);
 					}
