@@ -58,6 +58,8 @@
 #include "z80dma.h"
 #include "zxkey.h"
 #include "z80dis.h"
+#include "sasi.h"
+#include "ncr5380.h"
 
 static uint8_t ramrom[2048 * 1024];	/* Covers the banked card and ZRC */
 
@@ -97,6 +99,7 @@ static uint8_t have_copro;
 static uint8_t have_tms;
 static uint8_t have_ef9345;
 static uint8_t have_kio_ext;	/* Extreme config KIO at C0-DF */
+static uint8_t have_busstop;
 
 static uint8_t port30 = 0;
 static uint8_t port38 = 0;
@@ -105,6 +108,7 @@ static uint8_t int_recalc = 0;
 static uint8_t is_z512;
 static uint8_t z512_control = 0;
 static uint8_t ef_latch = 0;
+static uint16_t bs_latch;
 
 static struct ppide *ppide;
 static struct sdcard *sdcard;
@@ -119,6 +123,8 @@ static struct ef9345_renderer *ef9345rend;
 static struct tft_dumb *tft;
 static struct tft_renderer *tftrend;
 struct uart16x50 *uart;
+static struct sasi_bus *sasi;
+static struct ncr5380 *ncr;
 
 static uint8_t ef9345_vram[16384];
 static uint8_t ef9345_rom[8192];
@@ -173,6 +179,7 @@ volatile int emulator_done;
 #define TRACE_FDC	0x100000
 #define TRACE_PS2	0x200000
 #define TRACE_ACIA	0x400000
+#define TRACE_SCSI	0x800000
 
 static int trace = 0;
 
@@ -2147,6 +2154,11 @@ static uint8_t io_read_2014(uint16_t addr)
 	if (zxkey && (addr & 0xFC) == 0xFC)
 		return zxkey_scan(zxkey, addr);
 
+	if (have_busstop && (addr & 0xFF) >= 0xE0) {
+		bs_latch = addr;
+		Z80NMI(&cpu_z80);
+		/* The I/O still happens before the NMI hits */
+	}
 	addr &= 0xFF;
 
 	if (addr >= 0x80 && addr <= 0x9F && have_kio)
@@ -2194,6 +2206,15 @@ static uint8_t io_read_2014(uint16_t addr)
 		return uart16x50_read(uart, addr & 7);
 	if (addr == 0x6D && is_z512)
 		return z512_read(addr);
+	if (addr >= 0x58 && addr < 0x5C && ncr)
+		return ncr5380_read(ncr, addr & 7);
+	if (have_busstop && addr >= 0xDC && addr <= 0xDF) {
+		Z80NMI_Clear(&cpu_z80);
+		if (addr & 1)
+			return bs_latch >> 8;
+		else
+			return bs_latch;
+	}
 	if (trace & TRACE_UNK)
 		fprintf(stderr, "Unknown read from port %04X\n", addr);
 	return 0x78;	/* 78 is what my actual board floats at */
@@ -2289,7 +2310,8 @@ static void io_write_2014(uint16_t addr, uint8_t val, uint8_t known)
 			tftrend = tft_renderer_create(tft);
 		}
 		tft_write(tft, addr & 1, val);
-	}
+	} else if (addr >= 0x58 && addr <= 0x5B && ncr)
+		ncr5380_write(ncr, addr & 7, val);
 	/* The switchable/pageable ROM is not very well decoded */
 	else if (switchrom && (addr & 0x7F) >= 0x38 && (addr & 0x7F) <= 0x3F)
 		toggle_rom();
@@ -2806,6 +2828,7 @@ static void usage(void)
 int main(int argc, char *argv[])
 {
 	static struct timespec tc;
+	static const char *sasipath = NULL;
 	int opt;
 	int fd;
 	int rom = 1;
@@ -2829,7 +2852,7 @@ int main(int argc, char *argv[])
 	while (p < ramrom + sizeof(ramrom))
 		*p++= rand();
 
-	while ((opt = getopt(argc, argv, "19Aabcd:e:EfF:i:I:km:pPr:sRS:Tuw8C:Zz:X")) != -1) {
+	while ((opt = getopt(argc, argv, "19Aabcd:e:EfF:i:I:km:nN:pPr:sRS:Tuw8C:Zz:X")) != -1) {
 		switch (opt) {
 		case 'a':
 			have_acia = 1;
@@ -3009,6 +3032,12 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			break;
+		case 'n':
+			have_busstop = 1;
+			break;
+		case 'N':
+			sasipath = optarg;
+			break;
 		case 'd':
 			trace = atoi(optarg);
 			break;
@@ -3186,6 +3215,16 @@ int main(int argc, char *argv[])
 		if (trace & TRACE_PPIDE)
 			ppide_trace(ppide, 1);
 	}
+
+	if (sasipath) {
+		sasi = sasi_bus_create();
+		sasi_disk_attach(sasi, 0, sasipath, 512);
+		sasi_bus_reset(sasi);
+		ncr = ncr5380_create(sasi);
+		ncr5380_trace(ncr, trace & TRACE_SCSI);
+	}
+
+
 	/* SD mapping */
 	if (cpuboard == CPUBOARD_MICRO80 || cpuboard == CPUBOARD_MICRO80W) {
 		sd_clock = 0x04;
