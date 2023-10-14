@@ -1,5 +1,5 @@
 
-CFLAGS = -Wall -pedantic -g3 -Werror
+CFLAGS = -Wall -pedantic -g3 -Werror -I/opt/sdl2/include
 
 all:	rc2014 rcbus-1802 rcbus-6303 rcbus-6502 rcbus-65c816-mini \
 	rcbus-65c816 rcbus-6800 rcbus-68008 rcbus-6809 rcbus-68hc11 \
@@ -228,7 +228,7 @@ z80retro: z80retro.o sdcard.o z80dis.o libz80/libz80.o
 	cc -g3 2063.o 2063_noui.o sdcard.o 16x50.o tms9918a.o tms9918a_norender.o nojoystick.o z80dis.o libz80/libz80.o -lm -o 2063
 
 2063_sdl2: 2063.o 2063_sdlui.o sdcard.o 16x50.o tms9918a.o tms9918a_sdl2.o joystick.o z80dis.o libz80/libz80.o
-	cc -g3 2063.o 2063_sdlui.o sdcard.o 16x50.o tms9918a.o tms9918a_sdl2.o joystick.o z80dis.o libz80/libz80.o -lm -o 2063_sdl2 -lSDL2
+	cc -g3 2063.o 2063_sdlui.o sdcard.o 16x50.o tms9918a.o tms9918a_sdl2.o joystick.o z80dis.o libz80/libz80.o -lm -o 2063_sdl2 -L/opt/sdl2/lib -lSDL2
 
 zeta-v2: zeta-v2.o ide.o ppide.o pprop.o 16x50.o rtc_bitbang.o z80dis.o libz80/libz80.o lib765/lib/lib765.a
 	cc -g3 zeta-v2.o ide.o ppide.o pprop.o 16x50.o rtc_bitbang.o z80dis.o libz80/libz80.o lib765/lib/lib765.a -o zeta-v2
