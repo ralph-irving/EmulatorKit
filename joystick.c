@@ -40,24 +40,6 @@ struct joystick_info {
 	uint8_t             button_mask;
 };
 
-static const uint16_t button_map[SDL_CONTROLLER_BUTTON_MAX] = {
-    1 << 0,  // SDL_CONTROLLER_BUTTON_A
-    1 << 4,  // SDL_CONTROLLER_BUTTON_B
-    0,       // SDL_CONTROLLER_BUTTON_X
-    0,       // SDL_CONTROLLER_BUTTON_Y
-    0,       // SDL_CONTROLLER_BUTTON_BACK
-    0,       // SDL_CONTROLLER_BUTTON_GUIDE
-    0,       // SDL_CONTROLLER_BUTTON_START
-    0,       // SDL_CONTROLLER_BUTTON_LEFTSTICK
-    0,       // SDL_CONTROLLER_BUTTON_RIGHTSTICK
-    0,       // SDL_CONTROLLER_BUTTON_LEFTSHOULDER
-    0,       // SDL_CONTROLLER_BUTTON_RIGHTSHOULDER
-    1 << 7,  // SDL_CONTROLLER_BUTTON_DPAD_UP
-    1 << 6,  // SDL_CONTROLLER_BUTTON_DPAD_DOWN
-    1 << 2,  // SDL_CONTROLLER_BUTTON_DPAD_LEFT
-    1 << 5,  // SDL_CONTROLLER_BUTTON_DPAD_RIGHT
-};
-
 static bool trace = false;
 static struct joystick_info *Joystick_controllers     = NULL;
 static int                   Num_joystick_controllers = 0;
@@ -249,7 +231,7 @@ joystick_remove(int instance_id)
 }
 
 void
-joystick_button_down(int instance_id, uint8_t button)
+joystick_button_down(int instance_id, uint8_t button, const uint8_t *button_map)
 {
 	struct joystick_info *joy = find_joystick_controller(instance_id);
 	if (joy != NULL) {
@@ -260,7 +242,7 @@ joystick_button_down(int instance_id, uint8_t button)
 }
 
 void
-joystick_button_up(int instance_id, uint8_t button)
+joystick_button_up(int instance_id, uint8_t button, const uint8_t *button_map)
 {
 	struct joystick_info *joy = find_joystick_controller(instance_id);
 	if (joy != NULL) {
